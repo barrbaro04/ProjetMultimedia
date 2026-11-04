@@ -1,1 +1,11 @@
 changer fusion car erreur dans un des datasets
+
+
+
+Objective and inputs — what information this branch uses.
+Retained method — preprocessing, representation, classifier and prediction process.
+Training and evaluation — which data learns parameters, selects settings and measures final performance.
+Results and interpretation — a compact table and what it actually shows.
+Other experiments — a short summary table, with details available in the notebook.
+Outputs and reuse — exported files, class order, dependencies and required external files.
+Limits — specific limitations of this branch.
