@@ -22,7 +22,7 @@ L'archive contient **3 088 extraits provenant de 350 films**. Nous ne détectons
 
 Nous comptons les extraits par émotion pour repérer les classes les plus et les moins représentées.
 
-![Nombre d'extraits par émotion](photo/repartition_emotions.png)
+![Nombre d'extraits par émotion](photos/repartitions_emotions.png)
 
 Les huit émotions sont présentes, mais leurs effectifs sont déséquilibrés. La colère (`anger`) compte **677 extraits**, contre **244** pour l'amusement (`amusement`).
 
