@@ -1,5 +1,10 @@
 # Projet multimédia — Reconnaissance des émotions
 
+- VUKOSAVLJEVIC Petar
+- TUGUES SORRIBES Lluc
+- GHAFFAR Mohamed
+- PECHARMAN Yoris
+
 ## 1. Présentation du projet
 
 Ce projet, réalisé dans le cadre du Master 2 SID, consiste à reconnaître l'émotion associée à un extrait de film à partir de trois modalités : le texte, l'audio et la vidéo.
