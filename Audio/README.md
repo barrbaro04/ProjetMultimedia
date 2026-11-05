@@ -22,14 +22,21 @@ Le traitement suit les étapes suivantes :
 4. Classer cette représentation avec un réseau de deux couches cachées de **128 et 64 neurones**, avec ReLU et dropout, suivi d'une sortie à huit classes.
 5. Appliquer softmax pour obtenir huit probabilités. À l'évaluation, nous moyennons les probabilités des fenêtres pour produire une prédiction par extrait.
 
+![Architecture du modèle audio](photos/archi_aud.png)
+
 Nous entraînons d'abord le classifieur avec l'encodeur gelé. Nous ajustons ensuite le classifieur, les deux derniers blocs de l'encodeur et sa normalisation finale. L'idée est d'adapter une partie de la représentation à nos films tout en conservant les premières couches préentraînées.
 
 ## Entraînement et choix du modèle
 
+L’apprentissage se déroule en deux étapes :
+
+1. **Encodeur gelé** : les représentations sont extraites et sauvegardées, puis seul le classifieur apprend. Cela permet de tester la représentation préentraînée avec un coût de calcul réduit.
+2. **Fine-tuning partiel** : nous reprenons ce classifieur et ajustons aussi les deux derniers blocs Transformer et la normalisation finale de l’encodeur. Les premières couches restent gelées. L’objectif est d’adapter une partie de la représentation aux films tout en limitant le nombre de paramètres ajustés sur notre corpus.
+
 L'entraînement utilise AdamW, une perte pondérée selon les effectifs des émotions, du dropout et une régularisation des poids. La régularisation est faite car nous avons remarqué une grande difference entre l'accuracy du entrainement et du développement, ce qui implique une geenralization ou du sur-apprentissage. 
 De plus, le taux d'apprentissage diminuent lorsque le F1 macro sur dev stagne. L'arrêt précoce conserve la meilleure époque selon le F1 macro.
 
-Le F1 macro est choisit comme métrique principale car elle donne le même poids à chaque émotion, ce qui est utile avec des classes déséquilibrées. 
+Le F1 macro est choisit comme métrique principale car elle donne le même poids à chaque émotion, alors que l’accuracy globale peut masquer les difficultés sur les classes minoritaires. Les modèles sont comparés sur dev, et seul le modèle retenu est ensuite évalué sur test. 
 
 ## Résultats et limites
 
@@ -47,7 +54,24 @@ Ce résulat est plustot attendut car l'émotion d'une scène peut aussi dépendr
 ## Autres expériences
 
 Nous avons aussi testé eGeMAPS avec une régression logistique et un réseau de neurones, YAMNet seul ou associé à eGeMAPS, AST, wav2vec2 gelé, HuBERT, emotion2vec+ et MFCC avec un CNN. Ces modeles sont comparaient sur leur résulat de l'ensemble de développement pour accélérer le travail a cause du GPU limite sur Google Colab. 
-La comparaison détaillée figure dans le notebook.
+
+Le tableau reprend les scores recalculés avec les modèles sauvegardés et chargés à la fin du notebook.
+
+| Représentation et classifieur | F1 macro dev |
+|---|---:|
+| eGeMAPS + régression logistique | 0,2071 |
+| eGeMAPS + réseau de neurones | 0,2017 |
+| YAMNet + réseau de neurones | 0,2182 |
+| YAMNet + eGeMAPS + réseau de neurones | 0,2352 |
+| AST, fine-tuning partiel — checkpoint disponible | 0,2312 |
+| wav2vec2 MSP gelé + régression logistique | 0,2371 |
+| wav2vec2 MSP gelé + réseau de neurones | 0,2583 |
+| **wav2vec2 MSP, fine-tuning partiel + réseau de neurones** | **0,2621** |
+| HuBERT gelé + réseau de neurones | 0,2411 |
+| emotion2vec+ Large gelé + réseau de neurones | 0,2277 |
+| MFCC + CNN | 0,2082 |
+
+L’apport du **fine-tuning reste toutefois très limité** : le modèle complet évalué avant cette étape obtient déjà **0,2620**, contre **0,2621** après ajustement. Cette différence ne montre pas d’amélioration nette.
 
 ## Prédictions pour la fusion
 
@@ -56,4 +80,3 @@ La comparaison détaillée figure dans le notebook.
 
 Chaque ligne contient le `video_id` et huit probabilités, avec une colonne par émotion. La fusion peut ainsi relier les sorties des différentes branches grâce au `video_id`.
 
-Les chemins vers les données et les sauvegardes Google Drive sont à adapter dans le notebook. Les poids entraînés ne sont pas inclus dans ce dossier.
