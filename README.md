@@ -48,3 +48,37 @@ Chaque branche produit un vecteur avec huit probabilités d'émotion par extrait
 Les modèles sont évalués principalement avec le F1 macro, qui donne le même poids à chaque émotion. La comparaison des branches et de leur fusion permet ensuite d'examiner les apports de chaque modalité, les erreurs restantes et les limites du système.
 
 ## 3. Analyse des résultats
+
+### Comparaison des branches
+
+| Source | F1 macro dev | F1 macro test | Extraits évalués sur test |
+|---|---:|---:|---|
+| Vidéo | 0,390 | 0,369 | 439, ensemble complet |
+| Audio | 0,262 | 0,220 | 439, ensemble complet |
+| Texte : transcriptions | 0,188 | 0,208 | 257, avec une transcription disponible |
+| Texte : descriptions des scènes | 0,349 | 0,324 | 439, ensemble complet |
+| **Fusion des quatre sources** | **0,444** | **0,409** | **439, ensemble complet** |
+
+La **vidéo obtient le meilleur résultat parmi les sources prises séparément**. Sur ces extraits, les images semblent donc apporter des informations utiles pour reconnaître l’émotion de la scène. Les descriptions obtiennent également un résultat intéressant, elles résument les actions et le contenu visuel, ce qui peut aider à identifier l’ambiance de la scène.
+
+Les résultats de l’audio et des transcriptions sont plus faibles. Une explication possible est que les dialogues sont parfois courts ou ambigus et que la bande sonore mélange les voix, la musique et les bruitages. L’émotion attendue ne correspond pas forcément à celle exprimée dans les paroles ou la voix seules.
+
+### Apport de la fusion
+
+La fusion retenue est une **moyenne pondérée**.
+
+Sur test, le F1 macro passe de **0,369 pour la vidéo seule à 0,409 pour la fusion**, soit un gain d’environ **4,1 points de pourcentage** avec les valeurs non arrondies. L’accuracy passe de **41,0 % à 44,6 %**.
+
+Cela montre que les sources peuvent se compléter, même lorsqu’elles ont des performances individuelles différentes. En revanche, leur donner le même poids ne suffit pas : la moyenne simple obtient seulement **0,365 sur test**. La pondération permet ici de conserver une place importante à la vidéo tout en utilisant les autres informations.
+
+L’ajout des descriptions joue un rôle dans le gain observé. La fusion vidéo, audio et transcriptions atteint environ **0,375 sur test**, contre **0,409** avec les quatre sources. Le gain de la fusion complète par rapport à la vidéo est positif dans l’intervalle bootstrap apparié à 95 %, estimé entre **+0,7 et +7,3 points** en rééchantillonnant les films. Ce résultat reste lié à notre partition et aux modèles entraînés.
+
+### Bilan et limites
+
+Les résultats restent modestes. Plusieurs émotions sont encore confondues et les performances varient selon les classes. En vidéo, la peur est la mieux reconnue sur dev, alors que le dégoût et l’excitation sont plus difficiles. En audio, la colère est mieux reconnue que le contentement.
+
+La taille du corpus et nos moyens de calcul ont limité les expériences. C'est possible que si on avait plus de données, on aurait des meilleurs résultats.
+
+Enfin, les descriptions sont des résumés visuels fournis avec le corpus, et non des dialogues obtenus à partir de l’audio. Leur provenance et leur lien avec la production des annotations doivent être pris en compte pour interpréter leur apport.
+
+Ce projet nous a permis de comparer plusieurs façons de représenter une scène et de montrer l’intérêt d’une combinaison pondérée sur notre test. Les analyses détaillées sont disponibles dans les dossiers [Audio](Audio/), [Video](Video/), [Texte](Texte/) et [Fusion](Fusion/).
