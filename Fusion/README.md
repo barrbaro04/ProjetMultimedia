@@ -1,10 +1,5 @@
 # Fusion multimodale : démarche, méthodologie et résultats
 
-Projet Multimédia (M2 SID, Université Paul Sabatier) : reconnaissance de 8 émotions dans des extraits de film (sous-corpus « movie » d'EmoVid).  
-Partie fusion : Mohamed GHAFFAR. Groupe : Y. Pecharman, P. Vukosavljevic, M. Ghaffar, L. Tugues Sorribes. Novembre 2026.
-
-## En bref
-
 Nous combinons par **fusion tardive** les probabilités de quatre sources : vidéo, audio, transcription des dialogues et description textuelle de la scène. Six règles de combinaison, avec et sans masque de disponibilité, sont comparées ; le choix se fait sur le dev et le test n'est mesuré qu'une fois.
 
 - Méthode retenue : **moyenne pondérée** (vidéo 0,6 ; audio 0,1 ; transcription 0,2 ; description 0,1), sans masque.
