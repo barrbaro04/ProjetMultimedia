@@ -20,7 +20,7 @@ La fusion ne réentraîne aucun modèle : elle reprend les sorties produites par
 |---|---|---|---|---|
 | Vidéo | CLIP ViT-L/14 gelé, 8 images, moyenne + écart-type, régression logistique | 100 % des clips | 39,0 % | 36,9 % |
 | Audio | wav2vec2 pré-entraîné sur MSP-Podcast, fine-tuning partiel | 100 % (inutile sans parole) | 26,2 % | 22,0 % |
-| Transcription | DistilRoBERTa émotion (j-hartmann) fine-tunée sur les dialogues Whisper | 58 % (clips parlés) | 18,8 % | 20,8 % |
+| Transcription | DistilRoBERTa émotion (j-hartmann) fine-tunée sur les dialogues Whisper | 64 % (clips parlés) | 18,8 % | 20,8 % |
 | Description | même modèle, fine-tuné sur la description textuelle de chaque scène | 100 % des clips | 34,9 % | 32,4 % |
 | Repère | hasard (8 classes équiprobables) | — | ≈ 12,5 % | ≈ 12,5 % |
 
