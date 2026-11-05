@@ -2,7 +2,9 @@
 
 La partie textuelle de notre projet repose sur deux axes principaux : la **transcription** des dialogues et les **descriptions (captions)** des scènes.
 
-Le principe général de cette modélisation consiste à charger un modèle pré-entraîné sur Hugging Face et à lui ajouter une « tête » (*head*) de classification personnalisée que nous entraînons sur nos données. Les clips sont classés en **8 émotions** : `amusement`, `awe`, `contentment`, `excitement`, `anger`, `disgust`, `fear`, `sadness`.
+Le principe général de cette modélisation consiste à charger un modèle pré-entraîné sur Hugging Face et à lui ajouter une « tête » (*head*) de classification personnalisée que nous entraînons sur nos données. 
+
+Les clips sont classés en **8 émotions** : `amusement`, `awe`, `contentment`, `excitement`, `anger`, `disgust`, `fear`, `sadness`.
 
 ---
 
@@ -36,16 +38,29 @@ Nous avons commencé par travailler uniquement sur les transcriptions avec un mo
 * **Résultat :** le modèle peinait à généraliser et prédisait de manière écrasante les deux classes de différente valance majoritaires  (`anger` et `contentment`).
 
 ### Deuxième modèle : introduction du `WeightedTrainer`
-Pour contrer le déséquilibre des classes, nous avons implémenté un `WeightedTrainer` personnalisé. Les poids sont calculés avec `compute_class_weight('balanced')` sur le train, puis injectés directement dans la fonction de perte : se tromper sur une émotion rare coûte alors plus cher que se tromper sur une émotion fréquente.
+Pour contrer le déséquilibre des classes, nous avons implémenté un `WeightedTrainer` personnalisé. Les poids sont calculés avec `compute_class_weight('balanced')` sur le train, puis injectés directement dans la fonction de perte : se tromper sur une émotion rare coûte alors plus cher que se tromper sur une émotion fréquente. On a testé ce deuxieme modèle sur des difèrentes configurations d'hyperparamétres. 
 
-* **Résultat :** malgré cette adaptation, les performances ne se sont pas améliorées de façon significative et le modèle peinait toujours à apprendre efficacement.
+| # | Learning rate | Epochs (max) | Weight decay | F1-macro dev 
+|---|---------------|--------------|--------------|--------------
+| 1 | 2e-5 | 6 | 0.01 | 0.1  | 
+| 2 | 3e-5 | 8 | 0.01 | 0.15 |
+
+* **Résultat :** avec cette adaptation, les performances se sont améliorées de façon significative mais ne dépassaient pas notre objectif (21 % de prédire anger toujours). 
 
 ### Troisième modèle : `j-hartmann/emotion-english-distilroberta-base`
 Partant du constat que le modèle de base comprenait mal les nuances émotionnelles, nous avons opté pour le modèle spécialisé **`j-hartmann/emotion-english-distilroberta-base`**, déjà pré-entraîné sur la détection d'émotions.
 
 Ce modèle a été pré-entraîné sur **7 émotions**, alors que notre tâche en compte **8**. Nous utilisons `ignore_mismatched_sizes=True` : la dernière couche est réinitialisée à 8 sorties, tandis que le reste du réseau conserve ses poids pré-entraînés.
 
-En ajustant finement les hyperparamètres (taux d'apprentissage, gestion du *weight decay* avec AdamW), nous avons obtenu un **F1-macro sur le jeu de développement (*dev*) allant jusqu'à 0.32**.
+En ajustant finement les hyperparamètres (taux d'apprentissage, gestion du *weight decay* avec AdamW), nous avons obtenu un **F1-macro sur le jeu de développement (*dev*) allant jusqu'à 0.188**.
+
+| # | Learning rate | Epochs (max) | Weight decay | F1-macro dev 
+|---|---------------|--------------|--------------|--------------
+| 1 | 1e-5 | 6 | 0.01 | 0.124 | 
+| 2 | 1e-5 | 8 | 0.01 | 0.142 |
+| 3 | 3e-5 | 6 | 0.01 | 0.188 |
+| 4 | 3e-5 | 8 | 0.01 | 0.179 |
+| 5 | 3e-5 | 8 | 0.05 | 0.175 |
 
 ---
 
@@ -63,17 +78,29 @@ Un taux d'apprentissage plus faible limite le risque de « casser » les poids p
 Au-delà de l'accuracy et du F1-macro, nous avons ajouté des vérifications pour comprendre *comment* le modèle se trompe :
 
 * **Matrice de confusion et rapport par classe** : pour voir quelles émotions sont confondues entre elles. [Ex. : `fear` et `sadness` sont souvent confondues ; `awe` est rarement prédite.]
-* **Accuracy de la valence** : le modèle distingue-t-il au moins les émotions **positives** (`amusement`, `awe`, `contentment`, `excitement`) des **négatives** (`anger`, `disgust`, `fear`, `sadness`) ? Nous la comparons à une baseline qui prédit toujours la classe majoritaire. [Résultat : X % contre Y %.]
-* **Top-k accuracy** (k = 1, 2, 3) : l'émotion correcte est-elle parmi les k plus probables ? Même avec un top-1 faible, un bon top-3 montre que le modèle est « presque juste », ce qui reste utile pour la fusion. [Résultats : top-1 = X, top-2 = Y, top-3 = Z.]
+* **Accuracy de la valence** : le modèle distingue-t-il au moins les émotions **positives** (`amusement`, `awe`, `contentment`, `excitement`) des **négatives** (`anger`, `disgust`, `fear`, `sadness`) ? Nous la comparons à une baseline qui prédit toujours la classe majoritaire. **Résultat : 60,7 % contre 61,5 %.** Le modèle ne fait donc pas mieux que la baseline : à partir du texte seul, il ne capte pas de manière fiable si la scène est plutôt positive ou négative. Cela s'explique en partie par la difficulté de la tâche (un dialogue court est souvent ambigu) et par le fait que les classes négatives sont majoritaires dans notre jeu de données.
+* **Top-k accuracy** (k = 1, 2, 3) : l'émotion correcte est-elle parmi les k plus probables ? Même avec un top-1 faible, un bon top-3 montre que le modèle est « presque juste », ce qui reste utile pour la fusion. **Résultats : top-1 = 23,3 %, top-2 = 36,2 %, top-3 = 47,9 %.** Pour comparaison, un choix au hasard parmi 8 classes donnerait 12,5 %, 25 % et 37,5 %. Le modèle fait donc mieux que le hasard (environ +11 points à chaque niveau), mais le signal reste modeste : la bonne émotion se trouve dans les 3 premières propositions un peu moins d'une fois sur deux.
 * **Courbes d'apprentissage** : loss train vs dev et métriques dev par epoch, pour détecter l'overfitting.
 
 ---
 
 ## 6. Modèle sur les descriptions (captions)
 
-Nous avons appliqué la même architecture (`j-hartmann/emotion-english-distilroberta-base`, mêmes hyperparamètres, même pondération des classes) aux **descriptions des scènes**. Contrairement aux transcriptions, elles sont disponibles pour **tous les clips**, et leur rédaction est plus structurée que celle des dialogues.
+Pour les descriptions des scènes, nous n'avons testé **qu'un seul modèle : `j-hartmann/emotion-english-distilroberta-base`**. Contrairement aux transcriptions, il n'a pas été nécessaire de passer par plusieurs itérations (`roberta-base`, `WeightedTrainer` seul, etc.) : nous avons directement repris l'architecture qui avait donné les meilleurs résultats sur les transcriptions (même tête de classification à 8 classes, même pondération des classes, mais nous avons testé deux configurations de learning rate / epochs).
 
-[Comparer ici le F1-macro dev : descriptions = 0.348, transcriptions = 0.32, et commenter laquelle est la plus informative et pourquoi.]
+Les performances sont **bien meilleures que celles obtenues avec les transcriptions** : F1-macro dev maximal **0.349** pour les descriptions, contre 0.188 pour les transcriptions. Cela s'explique par la nature du texte : une description est rédigée pour décrire la scène (actions, ambiance, expressions des personnages) et contient donc beaucoup plus d'indices émotionnels qu'un court dialogue, souvent ambigu ou absent. De plus, les descriptions sont disponibles pour **les 3089 clips** (aucune description vide), alors que 36 % des clips n'ont pas de transcription exploitable. Il n'y a donc aucun filtrage à faire pour ce modèle.
+
+| # | Learning rate | Epochs (max) | Weight decay | F1-macro dev 
+|---|---------------|--------------|--------------|--------------
+| 1 | 2e-5 | 6 | 0.01 | 0.295 | 
+| 2 | 3e-5 | 8 | 0.01 | 0.349 |
+
+Donc la comparaison entre les deux modèles: 
+
+| Source de texte | Modèle | F1-macro dev 
+|-----------------|--------|--------------|
+| Transcriptions  | `j-hartmann/emotion-english-distilroberta-base` | 0.188 |
+| Descriptions    | `j-hartmann/emotion-english-distilroberta-base` | 0.349 | 
 
 ---
 
@@ -93,30 +120,4 @@ Exporter des probabilités et non seulement l'émotion prédite permet de pondé
 
 * Le modèle est **uniquement anglais** : les transcriptions dans une autre langue (Whisper détecte la langue) sont mal comprises. On pourrait les traduire ou les filtrer par langue.
 * Les transcriptions sont **courtes et parfois ambiguës** : un dialogue seul ne suffit pas toujours à déterminer l'émotion d'une scène (ton de la voix, image, musique). C'est la motivation de la fusion multimodale.
-* Le F1-macro reste modeste (0.32) à cause du **déséquilibre des classes** et de la **subjectivité des annotations**. Pistes : augmentation de données, autres modèles (RoBERTa-large, DeBERTa), fine-tuning en deux temps.
-
----
-
-## 9. Modèle retenu
-
-Le modèle final pour la partie texte est **`j-hartmann/emotion-english-distilroberta-base`**, fine-tuné sur nos données.
-
-| Caractéristique | Valeur |
-|-----------------|--------|
-| Modèle de base | `j-hartmann/emotion-english-distilroberta-base` (DistilRoBERTa, pré-entraîné sur 7 émotions) |
-| Tête de classification | Réinitialisée à **8 classes** (`ignore_mismatched_sizes=True`) |
-| Entrée | Transcriptions (clips avec texte) et descriptions (captions) |
-| Longueur maximale | 128 tokens (troncature, padding dynamique par batch) |
-| Optimiseur | AdamW |
-| Fonction de perte | Cross-Entropy pondérée par classe (`WeightedTrainer`, poids `balanced`) |
-| Learning rate | 3e-5 |
-| Nombre d'epochs | 8 maximum |
-| Batch size | 16 (train) / 32 (évaluation) |
-| Weight decay | 0.01 |
-| Précision | `fp16` si GPU disponible |
-| Régularisation | Weight decay + early stopping (patience = 3) |
-| Sélection du modèle | Meilleur F1-macro sur le dev (`load_best_model_at_end=True`) |
-| Données d'entraînement | Train filtré : clips avec texte uniquement |
-| **F1-macro dev** | **0.32** (transcriptions) / [X] (descriptions) |
-| **F1-macro test** | [à compléter] |
-| Sortie | Probabilités (softmax) des 8 émotions par clip, uniformes (1/8) si pas de texte |
+* Le F1-macro reste a (0.349) à cause du **déséquilibre des classes** et de la **subjectivité des annotations**. Pistes : augmentation de données, autres modèles (RoBERTa-large, DeBERTa), fine-tuning en deux temps.
