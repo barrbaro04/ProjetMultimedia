@@ -14,26 +14,43 @@ Avant d'entraîner les modèles, nous avons défini les composants fondamentaux 
 
 * **L'optimiseur :** nous avons choisi **AdamW**, car il découple proprement la régularisation (*weight decay*) des gradients adaptatifs. Cela améliore la généralisation et limite l'overfitting.
 * **La fonction de perte (*Loss*) :** l'entropie croisée (*Cross-Entropy Loss*), adaptée à la classification multi-classe. Elle pénalise fortement les prédictions erronées mais confiantes du modèle.
-* **Les métriques d'évaluation :** l'exactitude (*Accuracy*) et le **F1-Macro**. L'accuracy peut avantager les classes majoritaires. Le F1-macro, lui, traite toutes les classes de la même manière : c'est une métrique plus robuste pour vérifier que le modèle ne néglige pas les émotions minoritaires de notre jeu de données.
+* **Les métriques d'évaluation :** **l'exactitude** (*Accuracy*) et le **F1-Macro**. L'accuracy peut avantager les classes majoritaires. Le F1-macro, lui, traite toutes les classes de la même manière : c'est une métrique plus robuste pour vérifier que le modèle ne néglige pas les émotions minoritaires de notre jeu de données.
 
 ---
 
 ## 2. Préparation des données
 
 ### Gestion des transcriptions vides
-Une partie des clips ne contient aucune parole (le VAD ne détecte pas de voix, ou Whisper renvoie un texte vide). Entraîner le modèle sur ces clips n'a pas de sens : il devrait deviner une émotion à partir d'une chaîne vide, ce qui ajoute du bruit.
+Une partie des clips ne contient aucune parole (dans la partie transcription: VAD ne détecte pas de voix, ou Whisper renvoie un texte vide). Entraîner le modèle sur ces clips n'a pas de sens : il devrait deviner une émotion à partir d'une chaîne vide, ce qui ajoute du bruit.
 
-* **Train et dev :** nous **retirons ces clips** de l'entraînement et du dev (le dev sert à choisir le meilleur epoch). Il reste **1411 clips avec texte sur 2208** dans le train, et **281 sur 442** dans le dev.
+* Nous **retirons ces clips** de l'entraînement et du dev (le dev sert à choisir le meilleur epoch). Il reste **1411 clips avec texte sur 2208** dans le train, **281 sur 442** dans le dev et **257 sur 439** dans le test.
 
 ### Tokenisation
 Les textes sont tronqués à **128 tokens** (`truncation=True`), car très peu de phrases dépassent cette limite. Nous n'ajoutons pas de padding à la tokenisation : un `DataCollatorWithPadding` complète dynamiquement chaque batch, ce qui économise de la mémoire.
 
 ---
 
-## 3. Itérations et entraînement sur les transcriptions
+## 3. Stratégie d'entraînement
+
+* **Tête de Classification**: prendre le tokenizeur, et le corps d'un modèle déjè entrainé et rajouter une derniere couche de classification qu'on tunerá pendant le train et dev.
+
+![Texte alternatif](ProjetMultimedia/Texte/modele.jpg "Titre optionnel")
+
+* **Early stopping** : l'entraînement s'arrête si le F1-macro du dev ne s'améliore plus pendant **3 epochs** consécutifs, et le modèle conserve le **meilleur epoch** (`load_best_model_at_end=True`). C'est aussi une forme de régularisation, car on évite de trop coller au train.
+
+Un taux d'apprentissage plus faible limite le risque de « casser » les poids pré-entraînés lors du fine-tuning.
+
+---
+
+## 4. Itérations et entraînement sur les transcriptions
 
 ### Premier modèle : `roberta-base` (approche naïve)
 Nous avons commencé par travailler uniquement sur les transcriptions avec un modèle `roberta-base` classique et les hyperparamètres par défaut.
+
+| # | Learning rate | Epochs (max) | Weight decay | F1-macro dev 
+|---|---------------|--------------|--------------|--------------
+| 1 | 2e-5 | 3 | 0.01 | 0.101 | 
+| 2 | 2e-5 | 6 | 0.01 | 0.152 |
 
 * **Résultat :** le modèle peinait à généraliser et prédisait de manière écrasante les deux classes de différente valance majoritaires  (`anger` et `contentment`).
 
@@ -42,15 +59,15 @@ Pour contrer le déséquilibre des classes, nous avons implémenté un `Weighted
 
 | # | Learning rate | Epochs (max) | Weight decay | F1-macro dev 
 |---|---------------|--------------|--------------|--------------
-| 1 | 2e-5 | 6 | 0.01 | 0.1  | 
-| 2 | 3e-5 | 8 | 0.01 | 0.15 |
+| 1 | 2e-5 | 6 | 0.01 | 0.048 | 
+| 2 | 3e-5 | 8 | 0.01 | 0.071 |
 
-* **Résultat :** avec cette adaptation, les performances se sont améliorées de façon significative mais ne dépassaient pas notre objectif (21 % de prédire anger toujours). 
+* **Résultat :** malgré cette adaptation, les performances restent très faibles (F1-macro dev de 0.10 à 0.15 selon la configuration) et le modèle prédit encore trop souvent la classe majoritaire. Ce modèle nous a surtout servi à comprendre le fonctionnement de la chaîne d'entraînement (tokenisation, pondération des classes, évaluation).
 
 ### Troisième modèle : `j-hartmann/emotion-english-distilroberta-base`
 Partant du constat que le modèle de base comprenait mal les nuances émotionnelles, nous avons opté pour le modèle spécialisé **`j-hartmann/emotion-english-distilroberta-base`**, déjà pré-entraîné sur la détection d'émotions.
 
-Ce modèle a été pré-entraîné sur **7 émotions**, alors que notre tâche en compte **8**. Nous utilisons `ignore_mismatched_sizes=True` : la dernière couche est réinitialisée à 8 sorties, tandis que le reste du réseau conserve ses poids pré-entraînés.
+Ce modèle a été pré-entraîné sur **7 émotions**, alors que notre tâche en compte **8**. Nous utilisons `ignore_mismatched_sizes=True` : la dernière couche est réinitialisée à 8 sorties et c'est a nous d'entrainer cette nouvelle classification. Le reste du réseau conserve ses poids pré-entraînés.
 
 En ajustant finement les hyperparamètres (taux d'apprentissage, gestion du *weight decay* avec AdamW), nous avons obtenu un **F1-macro sur le jeu de développement (*dev*) allant jusqu'à 0.188**.
 
@@ -61,15 +78,6 @@ En ajustant finement les hyperparamètres (taux d'apprentissage, gestion du *wei
 | 3 | 3e-5 | 6 | 0.01 | 0.188 |
 | 4 | 3e-5 | 8 | 0.01 | 0.179 |
 | 5 | 3e-5 | 8 | 0.05 | 0.175 |
-
----
-
-## 4. Stratégie d'entraînement
-
-* **Pondération des classes** : voir le `WeightedTrainer` ci-dessus, avec des poids calculés uniquement sur le train filtré (clips avec texte).
-* **Early stopping** : l'entraînement s'arrête si le F1-macro du dev ne s'améliore plus pendant **3 epochs** consécutifs, et le modèle conserve le **meilleur epoch** (`load_best_model_at_end=True`). C'est aussi une forme de régularisation, car on évite de trop coller au train.
-
-Un taux d'apprentissage plus faible limite le risque de « casser » les poids pré-entraînés lors du fine-tuning.
 
 ---
 
