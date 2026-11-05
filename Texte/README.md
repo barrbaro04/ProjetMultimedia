@@ -32,9 +32,24 @@ Les textes sont tronqués à **128 tokens** (`truncation=True`), car très peu d
 
 ## 3. Stratégie d'entraînement
 
-* **Tête de Classification**: prendre le tokenizeur, et le corps d'un modèle déjè entrainé et rajouter une derniere couche de classification qu'on tunerá pendant le train et dev.
+* **Architecture détaillée du modèle de classification:** Par exemple, le modèle retenu pour la classification basée sur les transcriptions présente l'architecture suivante :
 
-![Texte alternatif](ProjetMultimedia/Texte/modele.jpg "Titre optionnel")
+![Schéma de l'architecture du modèle](modele.jpg "Schéma de l'architecture du modèle")
+
+Comme l'illustre le schéma ci-dessus, le traitement s'effectue en trois grandes étapes :
+
+1. **Tokenisation et Embeddings :** 
+   Le texte d'entrée (transcription ou description) est découpé en tokens avec une longueur maximale fixée à 128 (`max_length = 128`). Chaque token est ensuite projeté dans un espace vectoriel de dimension 768.
+
+2. **Passage dans l'Encodeur Transformer :** 
+   Ces vecteurs traversent 6 couches de Transformer (dans le cas de `DistilRoBERTa`). À travers ces couches, les tokens partagent et enrichissent leurs informations contextuelles grâce aux mécanismes d'attention (*self-attention*). À la sortie de cet encodeur, nous obtenons une représentation vectorielle condensée de dimension 768 pour l'ensemble de la séquence.
+
+3. **La Tête de Classification (*Classification Head*) :** 
+   C'est la partie personnalisée que nous greffons au modèle pré-entraîné pour traiter notre tâche spécifique. 
+   
+   Elle se compose d'une couche dense intermédiaire (de dimension 768 vers 768), suivie d'une fonction d'activation/dropout, puis d'une couche de projection linéaire finale (`out_proj`). Cette dernière couche réduit la dimension de 768 aux **8 émotions de notre jeu de données** (Amusement, Awe, Contentment, Sadness, etc.).
+
+C'est principalement sur les poids et biais de cette tête de classification que se concentre le *fine-tuning* spécifique à notre tâche de prédiction d'émotions.
 
 * **Early stopping** : l'entraînement s'arrête si le F1-macro du dev ne s'améliore plus pendant **3 epochs** consécutifs, et le modèle conserve le **meilleur epoch** (`load_best_model_at_end=True`). C'est aussi une forme de régularisation, car on évite de trop coller au train.
 
@@ -94,7 +109,7 @@ Au-delà de l'accuracy et du F1-macro, nous avons ajouté des vérifications pou
 
 ## 6. Modèle sur les descriptions (captions)
 
-Pour les descriptions des scènes, nous n'avons testé **qu'un seul modèle : `j-hartmann/emotion-english-distilroberta-base`**. Contrairement aux transcriptions, il n'a pas été nécessaire de passer par plusieurs itérations (`roberta-base`, `WeightedTrainer` seul, etc.) : nous avons directement repris l'architecture qui avait donné les meilleurs résultats sur les transcriptions (même tête de classification à 8 classes, même pondération des classes, mais nous avons testé deux configurations de learning rate / epochs).
+A cause de la courte longueur du projet, pour les descriptions des scènes, nous n'avons testé **qu'un seul modèle : `j-hartmann/emotion-english-distilroberta-base`**. Contrairement aux transcriptions : nous avons directement repris l'architecture qui avait donné les meilleurs résultats sur les transcriptions (même tête de classification à 8 classes, même pondération des classes, mais nous avons testé deux configurations de learning rate / epochs).
 
 Les performances sont **bien meilleures que celles obtenues avec les transcriptions** : F1-macro dev maximal **0.349** pour les descriptions, contre 0.188 pour les transcriptions. Cela s'explique par la nature du texte : une description est rédigée pour décrire la scène (actions, ambiance, expressions des personnages) et contient donc beaucoup plus d'indices émotionnels qu'un court dialogue, souvent ambigu ou absent. De plus, les descriptions sont disponibles pour **les 3089 clips** (aucune description vide), alors que 36 % des clips n'ont pas de transcription exploitable. Il n'y a donc aucun filtrage à faire pour ce modèle.
 
