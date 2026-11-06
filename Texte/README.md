@@ -49,7 +49,7 @@ Comme l'illustre le schéma ci-dessus, le traitement s'effectue en trois grandes
    
    Elle se compose d'une couche dense intermédiaire (de dimension 768 vers 768), suivie d'une fonction d'activation/dropout, puis d'une couche de projection linéaire finale (`out_proj`). Cette dernière couche réduit la dimension de 768 aux **8 émotions de notre jeu de données** (Amusement, Awe, Contentment, Sadness, etc.).
 
-C'est principalement sur les poids et biais de cette tête de classification que se concentre le *fine-tuning* spécifique à notre tâche de prédiction d'émotions.
+Lors du fine-tuning, tous les poids du réseau (encodeur et tête) sont mis à jour par AdamW. Seule la couche out_proj est initialisée aléatoirement ; le reste part des poids pré-entraînés. C’est pourquoi nous utilisons un learning rate faible (1e-5 à 3e-5) : il limite le risque de dégrader les représentations apprises lors du pré-entraînement.
 
 * **Early stopping** : l'entraînement s'arrête si le F1-macro du dev ne s'améliore plus pendant **3 epochs** consécutifs, et le modèle conserve le **meilleur epoch** (`load_best_model_at_end=True`). C'est aussi une forme de régularisation, car on évite de trop coller au train.
 
@@ -64,8 +64,8 @@ Nous avons commencé par travailler uniquement sur les transcriptions avec un mo
 
 | # | Learning rate | Epochs (max) | Weight decay | F1-macro dev 
 |---|---------------|--------------|--------------|--------------
-| 1 | 2e-5 | 3 | 0.01 | 0.101 | 
-| 2 | 2e-5 | 6 | 0.01 | 0.152 |
+| 1 | 2e-5 | 3 | 0.01 | 0.048 | 
+| 2 | 2e-5 | 6 | 0.01 | 0.071 |
 
 * **Résultat :** le modèle peinait à généraliser et prédisait de manière écrasante les deux classes de différente valance majoritaires  (`anger` et `contentment`).
 
@@ -74,10 +74,10 @@ Pour contrer le déséquilibre des classes, nous avons implémenté un `Weighted
 
 | # | Learning rate | Epochs (max) | Weight decay | F1-macro dev 
 |---|---------------|--------------|--------------|--------------
-| 1 | 2e-5 | 6 | 0.01 | 0.048 | 
-| 2 | 3e-5 | 8 | 0.01 | 0.071 |
+| 1 | 2e-5 | 6 | 0.01 | 0.101 | 
+| 2 | 3e-5 | 8 | 0.01 | 0.152 |
 
-* **Résultat :** malgré cette adaptation, les performances restent très faibles (F1-macro dev de 0.10 à 0.15 selon la configuration) et le modèle prédit encore trop souvent la classe majoritaire. Ce modèle nous a surtout servi à comprendre le fonctionnement de la chaîne d'entraînement (tokenisation, pondération des classes, évaluation).
+* **Résultat :** malgré cette adaptation, les performances restent très faibles (F1-macro dev de 0.101 à 0.15 selon la configuration) et le modèle prédit encore trop souvent la classe majoritaire. Ce modèle nous a surtout servi à comprendre le fonctionnement de la chaîne d'entraînement (tokenisation, pondération des classes, évaluation).
 
 ### Troisième modèle : `j-hartmann/emotion-english-distilroberta-base`
 Partant du constat que le modèle de base comprenait mal les nuances émotionnelles, nous avons opté pour le modèle spécialisé **`j-hartmann/emotion-english-distilroberta-base`**, déjà pré-entraîné sur la détection d'émotions.
