@@ -101,6 +101,7 @@ En ajustant finement les hyperparamètres (taux d'apprentissage, gestion du *wei
 Au-delà de l'accuracy et du F1-macro, nous avons ajouté des vérifications pour comprendre *comment* le modèle se trompe :
 
 * **Matrice de confusion et rapport par classe** : pour voir quelles émotions sont confondues entre elles.
+
 Martice de confusion pour les transcriptions:
 ![Matrix Confusion Transcription](mConfTranscript.png "Matrice de confusion Transcription")
 
@@ -110,6 +111,10 @@ Matrice de confusion pour les descriptions:
 * **Accuracy de la valence** : le modèle distingue-t-il au moins les émotions **positives** (`amusement`, `awe`, `contentment`, `excitement`) des **négatives** (`anger`, `disgust`, `fear`, `sadness`) ? Nous la comparons à une baseline qui prédit toujours la classe majoritaire. **Résultat : 60,7 % contre 61,5 %.** Le modèle ne fait donc pas mieux que la baseline : à partir du texte seul, il ne capte pas de manière fiable si la scène est plutôt positive ou négative. Cela s'explique en partie par la difficulté de la tâche (un dialogue court est souvent ambigu) et par le fait que les classes négatives sont majoritaires dans notre jeu de données.
 * **Top-k accuracy** (k = 1, 2, 3) : l'émotion correcte est-elle parmi les k plus probables ? Même avec un top-1 faible, un bon top-3 montre que le modèle est « presque juste », ce qui reste utile pour la fusion. **Résultats : top-1 = 23,3 %, top-2 = 36,2 %, top-3 = 47,9 %.** Pour comparaison, un choix au hasard parmi 8 classes donnerait 12,5 %, 25 % et 37,5 %. Le modèle fait donc mieux que le hasard (environ +11 points à chaque niveau), mais le signal reste modeste : la bonne émotion se trouve dans les 3 premières propositions un peu moins d'une fois sur deux.
 * **Courbes d'apprentissage** : loss train vs dev et métriques dev par epoch, pour détecter l'overfitting.
+
+![resultsModeleTranscription](resultsModeleTranscription.png "resultsModeleTranscription")
+
+Notons que la courbe de la loss d'entraînement ne contient pas un seul point par epoch, mais plusieurs. Cela est dû au paramètre `logging_steps=20` : le modèle enregistre la loss d'entraînement tous les 20 pas. La loss de validation, elle, n'est calculée qu'à la fin de chaque epoch (`eval_strategy='epoch'`), d'où un seul point par epoch.
 
 ---
 
@@ -136,10 +141,6 @@ Donc la comparaison entre les deux modèles:
 ## 7. Sortie pour la fusion multimodale
 
 Chaque modèle texte exporte, pour le dev et le test, un CSV contenant le `clip_id` et les **8 probabilités** (softmax des logits), une colonne par émotion :
-
-```
-clip_id,amusement,awe,contentment,excitement,anger,disgust,fear,sadness
-```
 
 Exporter des probabilités et non seulement l'émotion prédite permet de pondérer les modalités selon leur confiance lors de la fusion avec le modèle vidéo. Fichiers produits : `probs_transcription_dev.csv`, `probs_transcription_test.csv` (et leurs équivalents `probs_description_*.csv` pour les captions).
 
