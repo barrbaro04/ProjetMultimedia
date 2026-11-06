@@ -13,10 +13,10 @@ La fusion ne réentraîne aucun modèle : elle reprend les sorties produites par
 
 | Branche | Modèle | Couverture | F1 dev | F1 test |
 |---|---|---|---|---|
-| Vidéo | CLIP ViT-L/14 gelé, 8 images, moyenne + écart-type, régression logistique | 100 % des clips | 39,0 % | 36,9 % |
-| Audio | wav2vec2 pré-entraîné sur MSP-Podcast, fine-tuning partiel | 100 % (inutile sans parole) | 26,2 % | 22,0 % |
-| Transcription | DistilRoBERTa émotion (j-hartmann) fine-tunée sur les dialogues Whisper | 64 % (clips parlés) | 18,8 % | 20,8 % |
-| Description | même modèle, fine-tuné sur la description textuelle de chaque scène | 100 % des clips | 34,9 % | 32,4 % |
+| Vidéo | CLIP ViT-L/14 gelé, 8 images, moyenne + écart-type, régression logistique | 100 % des clips | 0,390  | 0,369 |
+| Audio | wav2vec2 pré-entraîné sur MSP-Podcast, fine-tuning partiel | 100 % (inutile sans parole) | 0,262 | 0,220 |
+| Transcription | DistilRoBERTa émotion (j-hartmann) fine-tunée sur les dialogues Whisper | 64 % (clips parlés) | 0,188 | 0,208 |
+| Description | même modèle, fine-tuné sur la description textuelle de chaque scène | 100 % des clips | 0,349  | 0,324  |
 | Repère | hasard (8 classes équiprobables) | — | ≈ 12,5 % | ≈ 12,5 % |
 
 *Tableau 1 : entrées de la fusion. Les scores vidéo et audio, recalculés à partir des fichiers des équipes, sont identiques à ceux annoncés. Les deux modèles texte ont été relancés pour exporter leurs probabilités ; avec environ 1 400 exemples d'entraînement, deux exécutions identiques peuvent différer de plusieurs points.*
